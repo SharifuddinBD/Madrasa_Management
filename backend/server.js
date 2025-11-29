@@ -12,7 +12,7 @@ const errorHandler = require('./middleware/errorHandler');
 // const authRoutes = require('./routes/authRoutes');
 // const userRoutes = require('./routes/userRoutes');
 const studentRoutes = require('./routes/students');
-// const teacherRoutes = require('./routes/teacherRoutes');
+const teacherRoutes = require('./routes/teachers');
 // const classRoutes = require('./routes/classRoutes');
 // const examRoutes = require('./routes/examRoutes');
 
@@ -44,7 +44,7 @@ app.use(limiter);
 // app.use('/api/auth', authRoutes);
 // app.use('/api/users', userRoutes);
 app.use('/api/students', studentRoutes);
-// app.use('/api/teachers', teacherRoutes);
+app.use('/api/teachers', teacherRoutes);
 // app.use('/api/classes', classRoutes);
 // app.use('/api/exams', examRoutes);
 

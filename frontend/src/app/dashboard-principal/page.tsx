@@ -13,155 +13,115 @@ import { toast } from "react-hot-toast";
 import api from "@/lib/api";
 import { AxiosError } from "axios";
 import { StudentRecord } from "@/app/dashboard-principal/StudentModal";
+import { TeacherRecord } from "@/app/dashboard-principal/TeacherModal";
 
 export default function PrincipalDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showNoticeModal, setShowNoticeModal] = useState(false);
   const [notices, setNotices] = useState([
-  {
-    id: 1,
-    title: 'বার্ষিক ক্রীড়া প্রতিযোগিতা',
-    content: 'আগামী ২৫শে আগস্ট, ২০২৫ তারিখে প্রতিষ্ঠানের বার্ষিক ক্রীড়া প্রতিযোগিতা অনুষ্ঠিত হবে।',
-    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    type: 'info'
-  },
-  {
-    id: 2,
-    title: 'অভিভাবক সমাবেশ',
-    content: 'সকল শিক্ষার্থীদের অভিভাবকদের নিয়ে একটি সমাবেশ অনুষ্ঠিত হবে আগামী শুক্রবার।',
-    date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    type: 'warning'
-  },
-  {
-    id: 3,
-    title: 'ছুটি ঘোষণা',
-    content: 'ঈদ-উল-মিলাদুন্নবী (সা.) উপলক্ষে আগামী সোমবার প্রতিষ্ঠান বন্ধ থাকবে।',
-    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-    type: 'success'
-  },
-  {
-    id: 4,
-    title: 'পরীক্ষার সময়সূচি প্রকাশ',
-    content: 'অর্ধবার্ষিক পরীক্ষার সময়সূচি প্রকাশিত হয়েছে। অনুগ্রহ করে নোটিশ বোর্ডে দেখে নিন।',
-    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-    type: 'info'
-  },
-  {
-    id: 5,
-    title: 'শ্রেণিকক্ষ রক্ষণাবেক্ষণ',
-    content: 'আগামীকাল শ্রেণিকক্ষগুলোতে পরিষ্কার-পরিচ্ছন্নতা কার্যক্রম চলবে, সকল শিক্ষার্থীকে সচেতন থাকতে বলা হলো।',
-    date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    type: 'warning'
-  }
-]);
+    {
+      id: 1,
+      title: 'বার্ষিক ক্রীড়া প্রতিযোগিতা',
+      content: 'আগামী ২৫শে আগস্ট, ২০২৫ তারিখে প্রতিষ্ঠানের বার্ষিক ক্রীড়া প্রতিযোগিতা অনুষ্ঠিত হবে।',
+      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      type: 'info'
+    },
+    {
+      id: 2,
+      title: 'অভিভাবক সমাবেশ',
+      content: 'সকল শিক্ষার্থীদের অভিভাবকদের নিয়ে একটি সমাবেশ অনুষ্ঠিত হবে আগামী শুক্রবার।',
+      date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      type: 'warning'
+    },
+    {
+      id: 3,
+      title: 'ছুটি ঘোষণা',
+      content: 'ঈদ-উল-মিলাদুন্নবী (সা.) উপলক্ষে আগামী সোমবার প্রতিষ্ঠান বন্ধ থাকবে।',
+      date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      type: 'success'
+    },
+    {
+      id: 4,
+      title: 'পরীক্ষার সময়সূচি প্রকাশ',
+      content: 'অর্ধবার্ষিক পরীক্ষার সময়সূচি প্রকাশিত হয়েছে। অনুগ্রহ করে নোটিশ বোর্ডে দেখে নিন।',
+      date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+      type: 'info'
+    },
+    {
+      id: 5,
+      title: 'শ্রেণিকক্ষ রক্ষণাবেক্ষণ',
+      content: 'আগামীকাল শ্রেণিকক্ষগুলোতে পরিষ্কার-পরিচ্ছন্নতা কার্যক্রম চলবে, সকল শিক্ষার্থীকে সচেতন থাকতে বলা হলো।',
+      date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      type: 'warning'
+    }
+  ]);
 
   const [results, setResults] = useState([
-  {
-    id: 1,
-    student: 'আবু বকর সিদ্দিক',
-    className: 'দ্বিতীয় জামাত',
-    exam: 'মাসিক পরীক্ষা',
-    grade: 'A+'
-  },
-  {
-    id: 2,
-    student: 'ফাতিমা বিনতে মুহাম্মদ',
-    className: 'তৃতীয় জামাত',
-    exam: 'ত্রৈমাসিক পরীক্ষা',
-    grade: 'A'
-  },
-  {
-    id: 3,
-    student: 'মুহাম্মদ আল আমিন',
-    className: 'চতুর্থ জামাত',
-    exam: 'অর্ধবার্ষিক পরীক্ষা',
-    grade: 'B+'
-  },
-  {
-    id: 4,
-    student: 'রহিমা খাতুন',
-    className: 'হিফজ বিভাগ',
-    exam: 'অগ্রগতির পরীক্ষা',
-    grade: 'A'
-  },
-  {
-    id: 5,
-    student: 'তানভীর হাসান',
-    className: 'পঞ্চম জামাত',
-    exam: 'মাসিক পরীক্ষা',
-    grade: 'A+'
-  },
-  {
-    id: 6,
-    student: 'সুমাইয়া আক্তার',
-    className: 'ছয় নম্বর জামাত',
-    exam: 'ত্রৈমাসিক পরীক্ষা',
-    grade: 'A'
-  },
-  {
-    id: 7,
-    student: 'আব্দুল করিম',
-    className: 'মুত্তাওয়াসসিতাহ',
-    exam: 'বার্ষিক পরীক্ষা',
-    grade: 'B'
-  },
-  {
-    id: 8,
-    student: 'জয়নাব বিনতে আবু তালেব',
-    className: 'সানাবিয়া উলা',
-    exam: 'মধ্যবর্তী পরীক্ষা',
-    grade: 'A+'
-  }
-]);
-const [students, setStudents] = useState<StudentRecord[]>([]);
-const [studentsLoading, setStudentsLoading] = useState(true);
-const [studentsError, setStudentsError] = useState<string | null>(null);
+    {
+      id: 1,
+      student: 'আবু বকর সিদ্দিক',
+      className: 'দ্বিতীয় জামাত',
+      exam: 'মাসিক পরীক্ষা',
+      grade: 'A+'
+    },
+    {
+      id: 2,
+      student: 'ফাতিমা বিন্তে মুহাম্মদ',
+      className: 'তৃতীয় জামাত',
+      exam: 'ত্রৈমাসিক পরীক্ষা',
+      grade: 'A'
+    },
+    {
+      id: 3,
+      student: 'মুহাম্মদ আল আমিন',
+      className: 'চতুর্থ জামাত',
+      exam: 'অর্ধবার্ষিক পরীক্ষা',
+      grade: 'B+'
+    },
+    {
+      id: 4,
+      student: 'রহিমা খাতুন',
+      className: 'হিফজ বিভাগ',
+      exam: 'অগ্রগতির পরীক্ষা',
+      grade: 'A'
+    },
+    {
+      id: 5,
+      student: 'তানভীর হাসান',
+      className: 'পঞ্চম জামাত',
+      exam: 'মাসিক পরীক্ষা',
+      grade: 'A+'
+    },
+    {
+      id: 6,
+      student: 'সুমাইয়া আক্তার',
+      className: 'ছয় নম্বর জামাত',
+      exam: 'ত্রৈমাসিক পরীক্ষা',
+      grade: 'A'
+    },
+    {
+      id: 7,
+      student: 'আবদুল করিম',
+      className: 'মুত্তাওয়াসসিতাহ',
+      exam: 'বার্ষিক পরীক্ষা',
+      grade: 'B'
+    },
+    {
+      id: 8,
+      student: 'জয়নাব বিন্তে আবু তালেব',
+      className: 'সানাবিয়া উলা',
+      exam: 'মধ্যবর্তী পরীক্ষা',
+      grade: 'A+'
+    }
+  ]);
 
-const [teachers, setTeachers] = useState([
-  {
-    id: 1,
-    name: 'মোঃ আব্দুল্লাহ',
-    position: 'প্রধান শিক্ষক',
-    contact: '01712345678'
-  },
-  {
-    id: 2,
-    name: 'মাওলানা রাশেদুল ইসলাম',
-    position: 'সহকারী প্রধান শিক্ষক',
-    contact: '01811223344'
-  },
-  {
-    id: 3,
-    name: 'হাফেজ মিজানুর রহমান',
-    position: 'হিফজ বিভাগের শিক্ষক',
-    contact: '01699887766'
-  },
-  {
-    id: 4,
-    name: 'মাওলানা খালিদ বিন ওয়ালিদ',
-    position: 'আকায়েদ ও ফিকহ',
-    contact: '01987654321'
-  },
-  {
-    id: 5,
-    name: 'উস্তাদা শামিমা আক্তার',
-    position: 'নারী বিভাগের ইনচার্জ',
-    contact: '01755443322'
-  },
-  {
-    id: 6,
-    name: 'মাওলানা আবু বকর সিদ্দিক',
-    position: 'তাফসির ও হাদীস',
-    contact: '01876543210'
-  },
-  {
-    id: 7,
-    name: 'হাফেজা সায়মা বিনতে তাহের',
-    position: 'হিফজ (নারী বিভাগ)',
-    contact: '01912345678'
-  }
-]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [studentsError, setStudentsError] = useState<string | null>(null);
 
+  const [teachers, setTeachers] = useState<TeacherRecord[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(true);
+  const [teachersError, setTeachersError] = useState<string | null>(null);
 
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -197,18 +157,39 @@ const [teachers, setTeachers] = useState([
     }
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    Promise.all([fetchStudents()]).finally(() => {
+  const fetchTeachers = useCallback(async () => {
+    try {
+      setTeachersLoading(true);
+      setTeachersError(null);
+      const response = await api.get('/teachers', {
+        params: { limit: 100, page: 1 }
+      });
+      setTeachers(response.data.data);
       setStats(prev => ({
         ...prev,
-        totalTeachers: 15,
+        totalTeachers: response.data.total || response.data.data?.length || 0
+      }));
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const message = axiosError.response?.data?.message || 'শিক্ষকের ডেটা লোড করতে ব্যর্থ হয়েছে';
+      setTeachersError(message);
+      toast.error(message);
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([fetchStudents(), fetchTeachers()]).finally(() => {
+      setStats(prev => ({
+        ...prev,
         totalClasses: 10,
         pendingResults: 12
       }));
       setLoading(false);
     });
-  }, [fetchStudents]);
+  }, [fetchStudents, fetchTeachers]);
 
   const handleStudentCreated = (student: StudentRecord) => {
     setStudents(prev => [student, ...prev]);
@@ -224,6 +205,23 @@ const [teachers, setTeachers] = useState([
     setStats(prev => ({
       ...prev,
       totalStudents: Math.max((prev.totalStudents || 1) - 1, 0)
+    }));
+  };
+
+  const handleTeacherCreated = (teacher: TeacherRecord) => {
+    setTeachers(prev => [teacher, ...prev]);
+    setStats(prev => ({
+      ...prev,
+      totalTeachers: (prev.totalTeachers || 0) + 1
+    }));
+  };
+
+  const handleTeacherDeleted = async (id: string) => {
+    await api.delete(`/teachers/${id}`);
+    setTeachers(prev => prev.filter(teacher => teacher._id !== id));
+    setStats(prev => ({
+      ...prev,
+      totalTeachers: Math.max((prev.totalTeachers || 1) - 1, 0)
     }));
   };
 
@@ -260,11 +258,19 @@ const [teachers, setTeachers] = useState([
             onDeleteStudent={handleStudentDeleted}
           />
         );
-     case 'teachers':
-  return <TeachersTab teachers={teachers} setTeachers={setTeachers} />;
-
-      case 'results': return <ResultsTab results={results} setResults={setResults} />;
-
+      case 'teachers':
+        return (
+          <TeachersTab
+            teachers={teachers}
+            loading={teachersLoading}
+            error={teachersError}
+            refresh={fetchTeachers}
+            onTeacherCreated={handleTeacherCreated}
+            onDeleteTeacher={handleTeacherDeleted}
+          />
+        );
+      case 'results':
+        return <ResultsTab results={results} setResults={setResults} />;
       case 'notices':
         return (
           <NoticesTab
@@ -296,10 +302,8 @@ const [teachers, setTeachers] = useState([
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Sidebar */}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} />
 
-      {/* Header */}
       <div className="ml-64 p-6">
         <div className="bg-white rounded-lg shadow-lg p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -319,7 +323,6 @@ const [teachers, setTeachers] = useState([
           </div>
         </div>
 
-        {/* Add Notice Button (only in notices tab) */}
         {activeTab === 'notices' && (
           <div className="pb-4 flex justify-end">
             <button
@@ -332,11 +335,9 @@ const [teachers, setTeachers] = useState([
           </div>
         )}
 
-        {/* Content */}
         {renderContent()}
       </div>
 
-      {/* Notice Modal */}
       {showNoticeModal && (
         <NoticeModal
           onClose={() => setShowNoticeModal(false)}
