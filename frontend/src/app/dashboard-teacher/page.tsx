@@ -1,6 +1,6 @@
 // dashboard-teacher/page.tsx
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, Sparkles, Star } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -11,7 +11,7 @@ import SettingsTab from './SettingsTab';
 import OverviewTab from './OverviewTab';
 import ProfileModal from './ProfileModal';
 import NoticesTab from './NoticesTab';
-import { Student, Grade, Homework, ViewType, TeacherProfile } from './types';
+import { Student, Grade, ViewType, TeacherProfile } from './types';
 
 function MadrasaTeacherDashboard() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
@@ -21,61 +21,124 @@ function MadrasaTeacherDashboard() {
   const [easterEggTriggered, setEasterEggTriggered] = useState(false);
   const [showAlert, setShowAlert] = useState('');
   const [showProfile, setShowProfile] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Generate demo attendance data
-  const generateDemoAttendanceData = (studentId: number) => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+  // Define available subjects for Islamic education
+  const subjects = [
+    'কুরআন তিলাওয়াত',
+    'তাজভীদ',
+    'হিফজ',
+    'নাযেরা',
+    'কায়দা',
+    'ফিকাহ',
+    'হাদীস',
+    'আকাইদ',
+    'তাফসীর',
+    'সীরাত',
+    'আরবি ব্যাকরণ'
+  ];
+
+  // Teacher information (in production, this would come from auth/session)
+  const teacherProfile: TeacherProfile = {
+    id: '507f1f77bcf86cd799439011', // Example MongoDB ObjectId
+    name: 'মাওলানা আবদুর রহমান',
+    designation: 'প্রধান শিক্ষক',
+    experience: '১৫ বছর',
+    specialization: 'তাফসীর ও হাদীস',
+    education: 'দাওরায়ে হাদীস, জামিয়া ইসলামিয়া',
+    email: 'rahman@madrasa.edu',
+    phone: '+৮৮০১৭১২৩৪৫৬৭৮',
+    joinedDate: '২০১০',
+    totalStudents: 0,
+    achievements: ['শ্রেষ্ঠ শিক্ষক পুরস্কার ২০২৩', 'কুরআন তিলাওয়াত প্রতিযোগিতা বিচারক'],
+  };
+
+  // Fetch students from database
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(`${API_URL}/api/students`);
+        
+        if (!response.ok) {
+          throw new Error('শিক্ষার্থীদের তথ্য লোড করতে ব্যর্থ');
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // Transform database students to match Student interface
+          const transformedStudents = data.data.map((student: any) => ({
+            id: student._id,
+            name: student.fullName,
+            class: getClassNameInBengali(student.className),
+            avatar: getAvatarForStudent(student.fullName),
+            attendance: generateDemoAttendanceData(student._id)
+          }));
+          
+          setStudents(transformedStudents);
+          
+          // Update teacher profile with total students
+          teacherProfile.totalStudents = transformedStudents.length;
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'একটি সমস্যা হয়েছে');
+        console.error('Error fetching students:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // Helper function to convert class names to Bengali
+  const getClassNameInBengali = (className: string): string => {
+    const classMap: { [key: string]: string } = {
+      'madani-first': 'মাদানী প্রথম',
+      'madani-second': 'মাদানী দ্বিতীয়',
+      'hifz-beginner': 'হিফজ বিভাগ - প্রাথমিক',
+      'hifz-intermediate': 'হিফজ বিভাগ - মধ্য',
+      'hifz-advanced': 'হিফজ বিভাগ - উচ্চ',
+      'nazera': 'নাযেরা',
+      'qaida': 'কায়দা'
+    };
+    return classMap[className] || className;
+  };
+
+  // Helper function to get avatar emoji based on name
+  const getAvatarForStudent = (name: string): string => {
+    const avatars = ['👨‍🎓', '👩‍🎓'];
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return avatars[hash % avatars.length];
+  };
+
+  // Generate demo attendance data (in real app, this would come from DB)
+  const generateDemoAttendanceData = (studentId: any) => {
     const attendance: { [date: string]: boolean } = {};
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     
+    const idHash = typeof studentId === 'string' 
+      ? studentId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      : studentId;
+    
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const isPresent = Math.random() > (studentId % 2 === 0 ? 0.15 : 0.08);
+      const isPresent = Math.random() > (idHash % 2 === 0 ? 0.15 : 0.08);
       attendance[dateStr] = isPresent;
     }
     return attendance;
   };
 
-  const [students, setStudents] = useState<Student[]>([
-    { id: 1, name: 'আবদুল্লাহ হাসান', class: 'হিফয বিভাগ', avatar: '👨‍🎓', attendance: generateDemoAttendanceData(1) },
-    { id: 2, name: 'ফাতিমা খাতুন', class: 'নাহু-সরফ', avatar: '👩‍🎓', attendance: generateDemoAttendanceData(2) },
-    { id: 3, name: 'মুহাম্মদ আলী', class: 'ফিকাহ', avatar: '👨‍🎓', attendance: generateDemoAttendanceData(3) },
-    { id: 4, name: 'আয়েশা বেগম', class: 'কুরআন তিলাওয়াত', avatar: '👩‍🎓', attendance: generateDemoAttendanceData(4) },
-    { id: 5, name: 'ইউসুফ আহমেদ', class: 'হাদিস', avatar: '👨‍🎓', attendance: generateDemoAttendanceData(5) },
-    { id: 6, name: 'খাদিজা রহমান', class: 'তাজবীদ', avatar: '👩‍🎓', attendance: generateDemoAttendanceData(6) },
-    { id: 7, name: 'উমর ফারুক', class: 'আকাইদ', avatar: '👨‍🎓', attendance: generateDemoAttendanceData(7) },
-    { id: 8, name: 'জয়নাব আক্তার', class: 'সীরাত', avatar: '👩‍🎓', attendance: generateDemoAttendanceData(8) },
-  ]);
-
-  const [grades, setGrades] = useState<Grade[]>([
-    { id: 1, student: 'আবদুল্লাহ হাসান', subject: 'হিফয', score: 95 },
-    { id: 2, student: 'ফাতিমা খাতুন', subject: 'নাহু-সরফ', score: 88 },
-    { id: 3, student: 'মুহাম্মদ আলী', subject: 'ফিকাহ', score: 92 },
-    { id: 4, student: 'আয়েশা বেগম', subject: 'কুরআন তিলাওয়াত', score: 97 },
-    { id: 5, student: 'ইউসুফ আহমেদ', subject: 'হাদিস', score: 85 },
-    { id: 6, student: 'খাদিজা রহমান', subject: 'তাজবীদ', score: 93 },
-  ]);
-
-  const [homework, setHomework] = useState<Homework[]>([
-    { id: 1, subject: 'কুরআন তিলাওয়াত', assignment: 'সূরা বাকারা ১-১০ আয়াত মুখস্থ', dueDate: '২০২৫-০৮-০৫' },
-    { id: 2, subject: 'ফিকাহ', assignment: 'ওযুর মাসায়েল অধ্যয়ন', dueDate: '২০২৫-০৮-০৬' },
-    { id: 3, subject: 'হাদিস', assignment: 'সহীহ বুখারীর প্রথম ১০টি হাদিস', dueDate: '২০২৫-০৮-০৭' },
-  ]);
-
-  const teacherProfile: TeacherProfile = {
-    name: 'মাওলানা আবদুর রহমান',
-    designation: 'প্রধান শিক্ষক',
-    experience: '১৫ বছর',
-    specialization: 'তাফসীর ও হাদিস',
-    education: 'দাওরায়ে হাদিস, জামিয়া ইসলামিয়া',
-    email: 'rahman@madrasa.edu',
-    phone: '+৮৮০১৭১২৩৪৫৬১৮',
-    joinedDate: '২০১০',
-    totalStudents: students.length,
-    achievements: ['শ্রেষ্ঠ শিক্ষক পুরস্কার ২০২৩', 'কুরআন তিলাওয়াত প্রতিযোগিতা বিচারক'],
-  };
+  const [grades, setGrades] = useState<Grade[]>([]);
 
   const handleMoonClick = () => {
     const newCount = clickCount + 1;
@@ -116,32 +179,75 @@ function MadrasaTeacherDashboard() {
     }
   };
 
-  const addHomework = (hw: Omit<Homework, 'id'>) => {
-    setHomework(prev => [...prev, { id: Date.now(), ...hw }]);
-    setShowAlert('নতুন গৃহকর্ম যোগ করা হয়েছে!');
-    setTimeout(() => setShowAlert(''), 2000);
-  };
-
-  const deleteHomework = (homeworkId: number) => {
-    setHomework(prev => prev.filter(hw => hw.id !== homeworkId));
-    setShowAlert('গৃহকর্ম মুছে ফেলা হয়েছে!');
-    setTimeout(() => setShowAlert(''), 2000);
+  const addGrade = (studentId: string, subject: string, score: number) => {
+    const student = students.find(s => s.id.toString() === studentId);
+    if (student && score >= 0 && score <= 100) {
+      const newGrade: Grade = {
+        id: Date.now(),
+        student: student.name,
+        subject: subject,
+        score: score
+      };
+      setGrades(prev => [...prev, newGrade]);
+      setShowAlert('নতুন নম্বর যোগ করা হয়েছে!');
+      setTimeout(() => setShowAlert(''), 2000);
+    }
   };
 
   const renderMainContent = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-emerald-500 mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">লোড হচ্ছে...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <p className="text-red-600 font-medium mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
+            >
+              পুনরায় চেষ্টা করুন
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentView) {
       case 'attendance':
         return <AttendanceTab students={students} toggleAttendance={toggleAttendance} />;
       case 'grading':
-        return <GradingView grades={grades} updateGrade={updateGrade} />;
+        return <GradingView students={students} subjects={subjects} />;
       case 'homework':
-        return <HomeworkTab homework={homework} addHomework={addHomework} deleteHomework={deleteHomework} />;
+        return (
+          <HomeworkTab 
+            teacherId={teacherProfile.id}
+            teacherName={teacherProfile.name}
+            className={undefined} // or pass specific class if filtering by class
+          />
+        );
       case 'notices':
         return <NoticesTab />;
       case 'settings':
         return <SettingsTab />;
       default:
-        return <OverviewTab students={students} grades={grades} homework={homework} setCurrentView={setCurrentView} />;
+        return (
+          <OverviewTab 
+            students={students} 
+            grades={grades} 
+            homework={[]} // Homework is now managed separately in HomeworkTab
+            setCurrentView={setCurrentView} 
+          />
+        );
     }
   };
 
@@ -200,7 +306,7 @@ function MadrasaTeacherDashboard() {
 
       {clickCount > 0 && clickCount < 5 && !easterEggTriggered && (
         <div className="fixed bottom-4 right-4 bg-emerald-100 text-emerald-800 px-4 py-3 rounded-xl shadow-lg z-30">
-          <p className="text-sm">চাঁদে আরও {5 - clickCount} বার ক্লিক করুন... 🌙</p>
+          <p className="text-sm">চাঁদে আরো {5 - clickCount} বার ক্লিক করুন... 🌙</p>
         </div>
       )}
     </div>

@@ -14,6 +14,8 @@ const errorHandler = require('./middleware/errorHandler');
 const studentRoutes = require('./routes/students');
 const teacherRoutes = require('./routes/teachers');
 const noticeRoutes = require('./routes/notices');
+const homeworkRoutes = require('./routes/homework');
+//const gradeRoutes = require('./routes/grade');
 // const classRoutes = require('./routes/classRoutes');
 // const examRoutes = require('./routes/examRoutes');
 
@@ -47,6 +49,8 @@ app.use(limiter);
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/notices', noticeRoutes);
+app.use('/api/homework', homeworkRoutes);
+// app.use('/api/grades', gradeRoutes);
 // app.use('/api/classes', classRoutes);
 // app.use('/api/exams', examRoutes);
 
