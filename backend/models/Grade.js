@@ -24,6 +24,11 @@ const gradeSchema = new mongoose.Schema({
       'qaida'
     ]
   },
+  courseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course',
+    required: [true, 'কোর্স নির্বাচন প্রয়োজন']
+  },
   subject: {
     type: String,
     required: [true, 'বিষয় নির্বাচন প্রয়োজন'],
@@ -75,20 +80,20 @@ const gradeSchema = new mongoose.Schema({
 // Method to calculate grade letter based on score
 gradeSchema.methods.calculateGradeLetter = function() {
   const score = this.score;
-  if (score >= 90) return 'A+';      // 90-100: Excellent (Green)
-  if (score >= 85) return 'A';       // 85-89: Very Good
-  if (score >= 80) return 'A-';      // 80-84: Good (Blue)
-  if (score >= 75) return 'B+';      // 75-79: Above Average
-  if (score >= 70) return 'B';       // 70-74: Average (Yellow)
-  if (score >= 65) return 'B-';      // 65-69: Below Average
-  if (score >= 60) return 'C+';      // 60-64: Poor (Orange)
-  if (score >= 55) return 'C';       // 55-59: Very Poor
-  if (score >= 50) return 'C-';      // 50-54: Failing
-  if (score >= 40) return 'D';       // 40-49: Failing (Red)
-  return 'F';                         // 0-39: Fail
+  if (score >= 90) return 'A+';
+  if (score >= 85) return 'A';
+  if (score >= 80) return 'A-';
+  if (score >= 75) return 'B+';
+  if (score >= 70) return 'B';
+  if (score >= 65) return 'B-';
+  if (score >= 60) return 'C+';
+  if (score >= 55) return 'C';
+  if (score >= 50) return 'C-';
+  if (score >= 40) return 'D';
+  return 'F';
 };
 
-// Pre-save middleware to auto-populate fields from Student and calculate grade
+// Pre-save middleware to auto-populate fields and calculate grade
 gradeSchema.pre('save', async function(next) {
   try {
     // Calculate grade letter
@@ -105,13 +110,23 @@ gradeSchema.pre('save', async function(next) {
       }
     }
     
-    // Auto-populate teacher info if not provided
-    if (this.teacherId && !this.teacherName) {
-      const Teacher = mongoose.model('Teacher');
-      const teacher = await Teacher.findById(this.teacherId);
+    // Auto-populate teacher info and subject from course if not provided
+    if (this.courseId && (!this.teacherId || !this.subject)) {
+      const Course = mongoose.model('Course');
+      const course = await Course.findById(this.courseId);
       
-      if (teacher) {
-        this.teacherName = teacher.teacherName;
+      if (course) {
+        this.teacherId = course.teacherId;
+        this.subject = course.courseName;
+        
+        // Get teacher name
+        if (!this.teacherName) {
+          const Teacher = mongoose.model('Teacher');
+          const teacher = await Teacher.findById(course.teacherId);
+          if (teacher) {
+            this.teacherName = teacher.teacherName;
+          }
+        }
       }
     }
     
@@ -121,12 +136,11 @@ gradeSchema.pre('save', async function(next) {
   }
 });
 
-// Pre-update middleware to recalculate grade letter and update student info
+// Pre-update middleware to recalculate grade letter
 gradeSchema.pre('findOneAndUpdate', async function(next) {
   try {
     const update = this.getUpdate();
     
-    // Handle $set updates
     if (update.$set) {
       // Recalculate grade letter if score is updated
       if (update.$set.score !== undefined) {
@@ -166,26 +180,16 @@ gradeSchema.pre('findOneAndUpdate', async function(next) {
   }
 });
 
-// Static method to get grade statistics (for dashboard)
+// Static method to get grade statistics
 gradeSchema.statics.getStatistics = async function(filters = {}) {
   const query = {};
   
-  // Build query based on filters
-  if (filters.class) {
-    query.studentClass = filters.class;
-  }
-  if (filters.subject) {
-    query.subject = filters.subject;
-  }
-  if (filters.teacherId) {
-    query.teacherId = filters.teacherId;
-  }
-  if (filters.academicYear) {
-    query.academicYear = filters.academicYear;
-  }
-  if (filters.term) {
-    query.term = filters.term;
-  }
+  if (filters.class) query.studentClass = filters.class;
+  if (filters.subject) query.subject = filters.subject;
+  if (filters.courseId) query.courseId = filters.courseId;
+  if (filters.teacherId) query.teacherId = filters.teacherId;
+  if (filters.academicYear) query.academicYear = filters.academicYear;
+  if (filters.term) query.term = filters.term;
 
   const grades = await this.find(query);
   
@@ -206,17 +210,45 @@ gradeSchema.statics.getStatistics = async function(filters = {}) {
     highestScore: Math.max(...scores),
     lowestScore: Math.min(...scores),
     totalGrades: grades.length,
-    // Additional statistics
     passCount: grades.filter(g => g.score >= 40).length,
     failCount: grades.filter(g => g.score < 40).length,
     excellentCount: grades.filter(g => g.score >= 90).length
   };
 };
 
-// Static method to get class-wise performance
-gradeSchema.statics.getClassPerformance = async function(teacherId) {
+// Static method to get course-wise performance
+gradeSchema.statics.getCoursePerformance = async function(teacherId) {
   const pipeline = [
     { $match: { teacherId: new mongoose.Types.ObjectId(teacherId) } },
+    {
+      $group: {
+        _id: '$courseId',
+        averageScore: { $avg: '$score' },
+        totalStudents: { $addToSet: '$studentId' },
+        totalGrades: { $sum: 1 },
+        subject: { $first: '$subject' }
+      }
+    },
+    {
+      $project: {
+        courseId: '$_id',
+        subject: 1,
+        averageScore: { $round: ['$averageScore', 2] },
+        studentCount: { $size: '$totalStudents' },
+        totalGrades: 1,
+        _id: 0
+      }
+    },
+    { $sort: { averageScore: -1 } }
+  ];
+  
+  return await this.aggregate(pipeline);
+};
+
+// Static method to get class-wise performance for a course
+gradeSchema.statics.getClassPerformanceForCourse = async function(courseId) {
+  const pipeline = [
+    { $match: { courseId: new mongoose.Types.ObjectId(courseId) } },
     {
       $group: {
         _id: '$studentClass',
@@ -240,50 +272,12 @@ gradeSchema.statics.getClassPerformance = async function(teacherId) {
   return await this.aggregate(pipeline);
 };
 
-// Static method to get subject-wise performance
-gradeSchema.statics.getSubjectPerformance = async function(filters = {}) {
-  const matchStage = {};
-  
-  if (filters.teacherId) {
-    matchStage.teacherId = new mongoose.Types.ObjectId(filters.teacherId);
-  }
-  if (filters.class) {
-    matchStage.studentClass = filters.class;
-  }
-  
-  const pipeline = [
-    { $match: matchStage },
-    {
-      $group: {
-        _id: '$subject',
-        averageScore: { $avg: '$score' },
-        highestScore: { $max: '$score' },
-        lowestScore: { $min: '$score' },
-        totalGrades: { $sum: 1 }
-      }
-    },
-    {
-      $project: {
-        subject: '$_id',
-        averageScore: { $round: ['$averageScore', 2] },
-        highestScore: 1,
-        lowestScore: 1,
-        totalGrades: 1,
-        _id: 0
-      }
-    },
-    { $sort: { averageScore: -1 } }
-  ];
-  
-  return await this.aggregate(pipeline);
-};
-
 // Indexes for faster queries
-gradeSchema.index({ studentId: 1, subject: 1, academicYear: 1, term: 1 });
+gradeSchema.index({ studentId: 1, courseId: 1, term: 1, examType: 1 }, { unique: true });
 gradeSchema.index({ teacherId: 1 });
+gradeSchema.index({ courseId: 1 });
 gradeSchema.index({ studentClass: 1 });
 gradeSchema.index({ subject: 1 });
-gradeSchema.index({ studentClass: 1, subject: 1 });
 gradeSchema.index({ academicYear: 1, term: 1 });
 gradeSchema.index({ score: 1 });
 gradeSchema.index({ createdAt: -1 });
@@ -305,6 +299,14 @@ gradeSchema.virtual('student', {
 gradeSchema.virtual('teacher', {
   ref: 'Teacher',
   localField: 'teacherId',
+  foreignField: '_id',
+  justOne: true
+});
+
+// Virtual for course reference
+gradeSchema.virtual('course', {
+  ref: 'Course',
+  localField: 'courseId',
   foreignField: '_id',
   justOne: true
 });

@@ -1,3 +1,4 @@
+// dashboard-principal/Sidebar.tsx
 'use client';
 import React from 'react';
 import {
@@ -7,7 +8,8 @@ import {
   Home,
   GraduationCap,
   Settings,
-  LogOut
+  LogOut,
+  BookOpen
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
@@ -15,19 +17,11 @@ import { toast } from 'react-hot-toast';
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  handleLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, handleLogout }) => {
   const router = useRouter();
-
-  const handleLogout = () => {
-    const confirmed = window.confirm('Are you sure you want to logout?');
-    if (!confirmed) return;
-
-    localStorage.removeItem('userAuth');
-    toast.success('Logged out successfully');
-    router.push('/');
-  };
 
   return (
     <div className="w-64 bg-gradient-to-b from-green-700 to-green-800 text-white h-screen fixed left-0 top-0 overflow-y-auto">
@@ -43,6 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           { id: 'overview', label: 'ওভারভিউ', icon: Home },
           { id: 'students', label: 'শিক্ষার্থী তথ্য', icon: Users },
           { id: 'teachers', label: 'শিক্ষক তথ্য', icon: GraduationCap },
+          { id: 'courses', label: 'কোর্স ব্যবস্থাপনা', icon: BookOpen },
           { id: 'results', label: 'ফলাফল', icon: FileText },
           { id: 'notices', label: 'নোটিশ বোর্ড', icon: Bell }
         ].map(({ id, label, icon: Icon }) => (

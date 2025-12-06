@@ -9,15 +9,11 @@ const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import routes
-// const authRoutes = require('./routes/authRoutes');
-// const userRoutes = require('./routes/userRoutes');
 const studentRoutes = require('./routes/students');
 const teacherRoutes = require('./routes/teachers');
 const noticeRoutes = require('./routes/notices');
 const homeworkRoutes = require('./routes/homework');
-//const gradeRoutes = require('./routes/grade');
-// const classRoutes = require('./routes/classRoutes');
-// const examRoutes = require('./routes/examRoutes');
+const courseRoutes = require('./routes/course');
 
 const app = express();
 
@@ -44,15 +40,16 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Routes
-// app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/homework', homeworkRoutes);
-// app.use('/api/grades', gradeRoutes);
-// app.use('/api/classes', classRoutes);
-// app.use('/api/exams', examRoutes);
+app.use('/api/courses', courseRoutes);  // All course routes now under /api/courses
+
+// Health check route
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running' });
+});
 
 // Error handler
 app.use(errorHandler);
@@ -60,7 +57,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+  console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
   console.log(`📚 Darul Hikmah Institute API ready at http://localhost:${PORT}`);
 });
 

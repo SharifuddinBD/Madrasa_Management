@@ -1,7 +1,7 @@
 // dashboard-teacher/GradingView.tsx
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Award, TrendingUp, Users, BookOpen, Plus, Save, Loader2 } from 'lucide-react';
+import { Award, TrendingUp, Users, BookOpen, Plus, Save, Loader2, BookMarked } from 'lucide-react';
 import { 
   createGrade, 
   getAllGrades, 
@@ -17,19 +17,41 @@ interface Student {
   avatar?: string;
 }
 
+interface Course {
+  _id: string;
+  courseName: string;
+  courseCode: string;
+  className: string;
+}
+
+interface EnrolledStudent {
+  _id: string;
+  fullName: string;
+  className: string;
+  rollNumber: string;
+}
+
 interface GradingViewProps {
   students: Student[];
   subjects: string[];
+  teacherId: string;
 }
 
-const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
+const GradingView: React.FC<GradingViewProps> = ({ students, subjects, teacherId }) => {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingGrade, setEditingGrade] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [filterClass, setFilterClass] = useState<string>('all');
-  const [filterSubject, setFilterSubject] = useState<string>('all');
   const [showAddForm, setShowAddForm] = useState(false);
+  
+  // New states for course-based grading
+  const [assignedCourses, setAssignedCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<string>('');
+  const [courseStudents, setCourseStudents] = useState<EnrolledStudent[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  
   const [newGrade, setNewGrade] = useState({
     studentId: '',
     subject: '',
@@ -43,18 +65,72 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Fetch grades on component mount and when filters change
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+  // Fetch assigned courses on component mount
   useEffect(() => {
-    fetchGrades();
-    fetchStats();
-  }, [filterClass, filterSubject]);
+    fetchAssignedCourses();
+  }, [teacherId]);
+
+  // Fetch students when course is selected
+  useEffect(() => {
+    if (selectedCourse) {
+      fetchCourseStudents(selectedCourse);
+      fetchGrades();
+      fetchStats();
+    }
+  }, [selectedCourse, filterClass]);
+
+  const fetchAssignedCourses = async () => {
+    try {
+      setLoadingCourses(true);
+      const response = await fetch(`${API_URL}/api/teachers/${teacherId}/courses`);
+      
+      if (!response.ok) {
+        throw new Error('কোর্স লোড করতে ব্যর্থ');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAssignedCourses(data.data);
+      }
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
+  const fetchCourseStudents = async (courseId: string) => {
+    try {
+      setLoadingStudents(true);
+      const response = await fetch(`${API_URL}/api/courses/${courseId}/students`);
+      
+      if (!response.ok) {
+        throw new Error('শিক্ষার্থী লোড করতে ব্যর্থ');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setCourseStudents(data.data);
+      }
+    } catch (error: any) {
+      showToast(error.message, 'error');
+    } finally {
+      setLoadingStudents(false);
+      setLoading(false);
+    }
+  };
 
   const fetchGrades = async () => {
+    if (!selectedCourse) return;
+    
     try {
       setLoading(true);
-      const filters: any = {};
+      const filters: any = { courseId: selectedCourse };
       if (filterClass !== 'all') filters.class = filterClass;
-      if (filterSubject !== 'all') filters.subject = filterSubject;
 
       const response = await getAllGrades(filters);
       setGrades(response.data);
@@ -66,10 +142,11 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
   };
 
   const fetchStats = async () => {
+    if (!selectedCourse) return;
+    
     try {
-      const filters: any = {};
+      const filters: any = { courseId: selectedCourse };
       if (filterClass !== 'all') filters.class = filterClass;
-      if (filterSubject !== 'all') filters.subject = filterSubject;
 
       const response = await getGradeStats(filters);
       setStats(response.data);
@@ -83,9 +160,9 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Get unique classes
+  // Get unique classes from course students
   const getUniqueClasses = () => {
-    const classes = new Set(students.map(s => s.class));
+    const classes = new Set(courseStudents.map(s => s.className));
     return Array.from(classes).sort();
   };
 
@@ -96,6 +173,20 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
     if (score >= 70) return 'text-yellow-700 bg-yellow-100';
     if (score >= 60) return 'text-orange-700 bg-orange-100';
     return 'text-red-700 bg-red-100';
+  };
+
+  // Convert class name to Bengali
+  const getClassNameInBengali = (className: string): string => {
+    const classMap: { [key: string]: string } = {
+      'madani-first': 'মাদানী প্রথম',
+      'madani-second': 'মাদানী দ্বিতীয়',
+      'hifz-beginner': 'হিফজ বিভাগ - প্রাথমিক',
+      'hifz-intermediate': 'হিফজ বিভাগ - মধ্য',
+      'hifz-advanced': 'হিফজ বিভাগ - উচ্চ',
+      'nazera': 'নাযেরা',
+      'qaida': 'কায়দা'
+    };
+    return classMap[className] || className;
   };
 
   const handleEdit = (gradeId: string, currentScore: number) => {
@@ -129,7 +220,7 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
 
   const handleAddGrade = async () => {
     try {
-      if (!newGrade.studentId || !newGrade.subject || !newGrade.score) {
+      if (!newGrade.studentId || !newGrade.score) {
         showToast('সকল তথ্য পূরণ করুন', 'error');
         return;
       }
@@ -140,9 +231,16 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
         return;
       }
 
+      const selectedCourseObj = assignedCourses.find(c => c._id === selectedCourse);
+      if (!selectedCourseObj) {
+        showToast('কোর্স নির্বাচন করুন', 'error');
+        return;
+      }
+
       await createGrade({
         studentId: newGrade.studentId,
-        subject: newGrade.subject,
+        courseId: selectedCourse,
+        subject: selectedCourseObj.courseName,
         score: score
       });
 
@@ -155,6 +253,72 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
       showToast(error.message, 'error');
     }
   };
+
+  const handleCourseChange = (courseId: string) => {
+    setSelectedCourse(courseId);
+    setGrades([]);
+    setCourseStudents([]);
+    setShowAddForm(false);
+  };
+
+  // Show course selection screen if no course is selected
+  if (!selectedCourse) {
+    return (
+      <div className="space-y-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${
+            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          } text-white`}>
+            {toast.message}
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <div className="text-center mb-8">
+            <BookMarked className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">নম্বর প্রদান</h2>
+            <p className="text-gray-600">আপনার নির্ধারিত কোর্স থেকে একটি নির্বাচন করুন</p>
+          </div>
+
+          {loadingCourses ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+            </div>
+          ) : assignedCourses.length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30 text-gray-400" />
+              <p className="text-gray-500">আপনার কোন কোর্স নির্ধারিত নেই</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assignedCourses.map((course) => (
+                <button
+                  key={course._id}
+                  onClick={() => handleCourseChange(course._id)}
+                  className="p-6 border-2 border-purple-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all text-left group"
+                >
+                  <div className="flex items-start space-x-3">
+                    <BookOpen className="w-8 h-8 text-purple-600 group-hover:scale-110 transition-transform" />
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-800 mb-1 group-hover:text-purple-600">
+                        {course.courseName}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-2">{course.courseCode}</p>
+                      <div className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                        {getClassNameInBengali(course.className)}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const selectedCourseObj = assignedCourses.find(c => c._id === selectedCourse);
 
   return (
     <div className="space-y-6">
@@ -207,36 +371,46 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
         </div>
       </div>
 
-      {/* Filters and Add Button */}
+      {/* Main Grading Panel */}
       <div className="bg-white rounded-2xl shadow-lg p-6">
+        {/* Header with Course Info and Actions */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-            <Award className="w-7 h-7 text-purple-600 mr-3" />
-            নম্বর প্রদান
-          </h2>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center mb-2">
+              <Award className="w-7 h-7 text-purple-600 mr-3" />
+              নম্বর প্রদান
+            </h2>
+            {selectedCourseObj && (
+              <div className="flex items-center space-x-3 text-sm">
+                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">
+                  {selectedCourseObj.courseName}
+                </span>
+                <span className="text-gray-500">{selectedCourseObj.courseCode}</span>
+                <button
+                  onClick={() => setSelectedCourse('')}
+                  className="text-purple-600 hover:text-purple-700 underline"
+                >
+                  কোর্স পরিবর্তন করুন
+                </button>
+              </div>
+            )}
+          </div>
           
           <div className="flex flex-wrap gap-3">
-            <select
-              value={filterClass}
-              onChange={(e) => setFilterClass(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-            >
-              <option value="all">সকল ক্লাস</option>
-              {getUniqueClasses().map(className => (
-                <option key={className} value={className}>{className}</option>
-              ))}
-            </select>
-
-            <select
-              value={filterSubject}
-              onChange={(e) => setFilterSubject(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-            >
-              <option value="all">সকল বিষয়</option>
-              {subjects.map(subject => (
-                <option key={subject} value={subject}>{subject}</option>
-              ))}
-            </select>
+            {getUniqueClasses().length > 1 && (
+              <select
+                value={filterClass}
+                onChange={(e) => setFilterClass(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                <option value="all">সকল ক্লাস</option>
+                {getUniqueClasses().map(className => (
+                  <option key={className} value={className}>
+                    {getClassNameInBengali(className)}
+                  </option>
+                ))}
+              </select>
+            )}
 
             <button
               onClick={() => setShowAddForm(!showAddForm)}
@@ -252,29 +426,20 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
         {showAddForm && (
           <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
             <h3 className="font-semibold text-gray-800 mb-4">নতুন নম্বর যোগ করুন</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <select
                 value={newGrade.studentId}
                 onChange={(e) => setNewGrade({ ...newGrade, studentId: e.target.value })}
                 className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
               >
                 <option value="">শিক্ষার্থী নির্বাচন করুন</option>
-                {students.map(student => (
-                  <option key={student.id} value={student.id}>
-                    {student.name} - {student.class}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={newGrade.subject}
-                onChange={(e) => setNewGrade({ ...newGrade, subject: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-              >
-                <option value="">বিষয় নির্বাচন করুন</option>
-                {subjects.map(subject => (
-                  <option key={subject} value={subject}>{subject}</option>
-                ))}
+                {courseStudents
+                  .filter(s => filterClass === 'all' || s.className === filterClass)
+                  .map(student => (
+                    <option key={student._id} value={student._id}>
+                      {student.fullName} - {getClassNameInBengali(student.className)} (Roll: {student.rollNumber})
+                    </option>
+                  ))}
               </select>
 
               <input
@@ -289,7 +454,7 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
 
               <button
                 onClick={handleAddGrade}
-                disabled={!newGrade.studentId || !newGrade.subject || !newGrade.score}
+                disabled={!newGrade.studentId || !newGrade.score}
                 className="px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 <Save className="w-5 h-5 mr-2" />
@@ -301,7 +466,7 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
 
         {/* Grades Table */}
         <div className="overflow-x-auto">
-          {loading ? (
+          {loading || loadingStudents ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
             </div>
@@ -310,8 +475,8 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
               <thead>
                 <tr className="bg-gray-50 border-b">
                   <th className="text-left p-4 font-semibold text-gray-700">শিক্ষার্থী</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">রোল</th>
                   <th className="text-left p-4 font-semibold text-gray-700">ক্লাস</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">বিষয়</th>
                   <th className="text-center p-4 font-semibold text-gray-700">নম্বর</th>
                   <th className="text-center p-4 font-semibold text-gray-700">গ্রেড</th>
                   <th className="text-center p-4 font-semibold text-gray-700">কার্যক্রম</th>
@@ -323,23 +488,24 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
                     <td colSpan={6} className="text-center py-12 text-gray-500">
                       <Award className="w-16 h-16 mx-auto mb-4 opacity-30" />
                       <p>কোন নম্বর পাওয়া যায়নি</p>
+                      <p className="text-sm mt-2">উপরে "নতুন নম্বর" বাটনে ক্লিক করে নম্বর যোগ করুন</p>
                     </td>
                   </tr>
                 ) : (
                   grades.map((grade) => {
                     const isEditing = editingGrade === grade.id;
-                    const student = students.find(s => s.name === grade.student);
+                    const student = courseStudents.find(s => s._id === grade.studentId);
 
                     return (
                       <tr key={grade.id} className="border-b hover:bg-gray-50 transition-colors">
                         <td className="p-4">
                           <div className="flex items-center space-x-3">
-                            <span className="text-2xl">{student?.avatar || '👨‍🎓'}</span>
+                            <span className="text-2xl">👨‍🎓</span>
                             <span className="font-medium text-gray-800">{grade.student}</span>
                           </div>
                         </td>
-                        <td className="p-4 text-gray-600">{grade.class}</td>
-                        <td className="p-4 text-gray-800 font-medium">{grade.subject}</td>
+                        <td className="p-4 text-gray-600">{student?.rollNumber || '-'}</td>
+                        <td className="p-4 text-gray-600">{getClassNameInBengali(grade.class)}</td>
                         <td className="p-4 text-center">
                           {isEditing ? (
                             <input
@@ -401,8 +567,7 @@ const GradingView: React.FC<GradingViewProps> = ({ students, subjects }) => {
           <div className="mt-6 p-4 bg-gray-50 rounded-xl">
             <p className="text-sm text-gray-600">
               মোট <span className="font-bold text-purple-600">{grades.length}</span> টি নম্বর প্রদর্শিত হচ্ছে
-              {filterClass !== 'all' && ` (${filterClass})`}
-              {filterSubject !== 'all' && ` - ${filterSubject}`}
+              {filterClass !== 'all' && ` (${getClassNameInBengali(filterClass)})`}
             </p>
           </div>
         )}

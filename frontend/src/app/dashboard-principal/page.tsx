@@ -8,6 +8,7 @@ import StudentsTab from "@/app/dashboard-principal/StudentsTab";
 import TeachersTab from "@/app/dashboard-principal/TeachersTab";
 import ResultsTab from "@/app/dashboard-principal/ResultsTab";
 import NoticesTab from "@/app/dashboard-principal/NoticesTab";
+import CourseAssignmentTab from "@/app/dashboard-principal/CourseAssignmentTab";
 import NoticeModal from "@/app/dashboard-principal/NoticeModal";
 import { toast } from "react-hot-toast";
 import api from "@/lib/api";
@@ -246,7 +247,7 @@ export default function PrincipalDashboard() {
     }
     switch (activeTab) {
       case 'overview':
-        return <OverviewTab stats={stats} setActiveTab={setActiveTab} />;
+        return <OverviewTab stats={stats} />;
       case 'students':
         return (
           <StudentsTab
@@ -269,18 +270,18 @@ export default function PrincipalDashboard() {
             onDeleteTeacher={handleTeacherDeleted}
           />
         );
+      case 'courses':
+        return <CourseAssignmentTab />;
       case 'results':
         return <ResultsTab results={results} setResults={setResults} />;
       case 'notices':
         return (
           <NoticesTab
-            notices={notices}
-            setNotices={setNotices}
             setShowModal={setShowNoticeModal}
           />
         );
       default:
-        return <OverviewTab stats={stats} setActiveTab={setActiveTab} />;
+        return <OverviewTab stats={stats} />;
     }
   };
 
@@ -341,17 +342,6 @@ export default function PrincipalDashboard() {
       {showNoticeModal && (
         <NoticeModal
           onClose={() => setShowNoticeModal(false)}
-          onSubmit={(title, content) => {
-            const newNotice = {
-              id: Date.now(),
-              title,
-              content,
-              date: new Date(),
-              type: 'info'
-            };
-            setNotices([newNotice, ...notices]);
-            setShowNoticeModal(false);
-          }}
         />
       )}
     </div>
